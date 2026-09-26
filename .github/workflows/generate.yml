@@ -1,0 +1,32 @@
+name: Generate notebooks
+
+# Rebuilds one notebook per GeDB crystal-growth dataset (dev + prod) from the public GeDB API
+# and commits changes with this repo's own GITHUB_TOKEN — no personal account or stored secret.
+on:
+  schedule: [{ cron: '*/30 * * * *' }]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [datasets-changed]
+  push:
+    branches: [main]
+    paths: ['generate.py', 'template/**']
+
+permissions:
+  contents: write
+
+concurrency: { group: generate, cancel-in-progress: false }
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 generate.py
+      - name: Commit changes
+        run: |
+          git add -A dev prod
+          git diff --cached --quiet && { echo "no changes"; exit 0; }
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "regenerate notebooks"
+          git push
